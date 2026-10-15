@@ -1,4 +1,75 @@
 sub EVENT_SIGNAL {
+    if ($signal == 31337) {
+        # Claude pinpoint teleport: read staged destination and MovePC live (no relog).
+        my $dbh = plugin::LoadMysql();
+        my $sth = $dbh->prepare('SELECT zone_id, x, y, z, h, label FROM claude_teleport WHERE character_id = ?');
+        $sth->execute($client->CharacterID());
+        my $row = $sth->fetchrow_hashref();
+        $sth->finish();
+        $dbh->disconnect();
+        if ($row) {
+            $client->MovePC($row->{zone_id}, $row->{x}, $row->{y}, $row->{z}, $row->{h});
+        }
+        return;
+    }
+
+    if ($signal == 31338) {
+        # Claude level-set: read target level from claude_teleport.label, SetLevel properly (exp floor + stat/skill recalc).
+        my $dbh = plugin::LoadMysql();
+        my $sth = $dbh->prepare('SELECT label FROM claude_teleport WHERE character_id = ?');
+        $sth->execute($client->CharacterID());
+        my $row = $sth->fetchrow_hashref();
+        $sth->finish();
+        $dbh->disconnect();
+        if ($row && $row->{label} =~ /^setlevel:(\d+)$/) {
+            my $lvl = $1;
+            $client->SetLevel($lvl) if ($lvl >= 1 && $lvl <= 80);
+        }
+        return;
+    }
+
+    if ($signal == 31339) {
+        # Claude force-cast: read 'cast:<spellid>' from claude_teleport.label and cast on self.
+        my $dbh = plugin::LoadMysql();
+        my $sth = $dbh->prepare('SELECT label FROM claude_teleport WHERE character_id = ?');
+        $sth->execute($client->CharacterID());
+        my $row = $sth->fetchrow_hashref();
+        $sth->finish();
+        $dbh->disconnect();
+        if ($row && $row->{label} =~ /^cast:(\d+)$/) {
+            $client->CastSpell($1, $client->GetID());
+        }
+        return;
+    }
+
+    if ($signal == 31340) {
+        # Claude item grant: read 'item:<id>' from claude_teleport.label and summon it.
+        my $dbh = plugin::LoadMysql();
+        my $sth = $dbh->prepare('SELECT label FROM claude_teleport WHERE character_id = ?');
+        $sth->execute($client->CharacterID());
+        my $row = $sth->fetchrow_hashref();
+        $sth->finish();
+        $dbh->disconnect();
+        if ($row && $row->{label} =~ /^items?:([\d,]+)$/) {
+            for my $id (split /,/, $1) {
+                # companion-pet range (977000-977005) gets full 5 charges; everything else 1
+                my $ch = ($id >= 977000 && $id <= 977005) ? 5 : 1;
+                $client->SummonItemIntoInventory({ item_id => $id, charges => $ch });
+            }
+        }
+        return;
+    }
+
+    if ($signal == 31342) {
+        # Claude: capture player's current location into claude_teleport for readback.
+        my $dbh = plugin::LoadMysql();
+        my $sth = $dbh->prepare('UPDATE claude_teleport SET zone_id=?, x=?, y=?, z=?, h=? WHERE character_id=?');
+        $sth->execute($client->GetZoneID(), $client->GetX(), $client->GetY(), $client->GetZ(), $client->GetHeading(), $client->CharacterID());
+        $sth->finish();
+        $dbh->disconnect();
+        return;
+    }
+
     if ($signal == 666) {
         plugin::UpdateEoMAward($client);
         return;
@@ -102,6 +173,34 @@ sub EVENT_DESTROY_ITEM_CLIENT {
 }
 
 sub EVENT_CONNECT {
+    # Claude pending login action (level-set or teleport), applied once on login.
+    {
+        my $dbh = plugin::LoadMysql();
+        my $sth = $dbh->prepare('SELECT zone_id, x, y, z, h, label FROM claude_teleport WHERE character_id = ?');
+        $sth->execute($client->CharacterID());
+        my $row = $sth->fetchrow_hashref();
+        $sth->finish();
+        if ($row && defined $row->{label}) {
+            my $clear = 0;
+            if ($row->{label} =~ /^setlevel:(\d+)$/) {
+                my $lvl = $1;
+                if ($lvl >= 1 && $lvl <= 120 && $client->GetLevel() != $lvl) {
+                    $client->SetLevel($lvl);
+                }
+                $clear = 1;
+            } elsif ($row->{label} eq 'login-tp') {
+                $client->MovePC($row->{zone_id}, $row->{x}, $row->{y}, $row->{z}, $row->{h});
+                $clear = 1;
+            }
+            if ($clear) {
+                my $upd = $dbh->prepare('UPDATE claude_teleport SET label=NULL WHERE character_id = ?');
+                $upd->execute($client->CharacterID());
+                $upd->finish();
+            }
+        }
+        $dbh->disconnect();
+    }
+
     if (plugin::GetSoulmark($client)) {
         plugin::DisplayWarning($client);
     }

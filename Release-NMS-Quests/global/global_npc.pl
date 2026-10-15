@@ -198,4 +198,11 @@ sub EVENT_DAMAGE_GIVEN
 
 sub EVENT_KILLED_MERIT {
     plugin::ProcessSlayerCredit($client, $npc, $entity_list);
+
+    # Claude: global bonus coin per kill, scaled by NPC level (easy-economy boost).
+    if ($client && $npc) {
+        my $lvl  = $npc->GetLevel() || 1;
+        my $plat = int($lvl / 2) + 1;   # ~11 plat/kill at level 20, scales with mob level
+        $client->AddMoneyToPP(int(rand(100)), int(rand(100)), int(rand(100)), $plat, 1);
+    }
 }

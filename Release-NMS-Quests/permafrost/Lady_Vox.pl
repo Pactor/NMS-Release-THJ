@@ -32,11 +32,13 @@ sub EVENT_ENTER {
 
 sub EVENT_TIMER {
     if ($timer eq "leash") {
+        my @hate_list = $npc->GetHateList();
+        quest::debug("VOXDIAG tic hp=".$npc->GetHP()."/".$npc->GetMaxHP()." ratio=".$npc->GetHPRatio()." hate=".scalar(@hate_list)." pos=".int($x).",".int($y).",".int($z));
         if ($x < -431 || $x > -85 || $y < 770 || $y > 1090 || $z < -50) {
+            quest::debug("VOXDIAG WIPE_AGGRO reason=position");
             WIPE_AGGRO();
         }
 
-        my @hate_list = $npc->GetHateList();
         if (scalar @hate_list > 0) {
             foreach my $ent (@hate_list) {
                 my $h_ent = $ent->GetEnt();
@@ -46,12 +48,14 @@ sub EVENT_TIMER {
                 }
             }
         } else {
+            quest::debug("VOXDIAG WIPE_AGGRO reason=hate_empty");
             WIPE_AGGRO();
         }
     }
 }
 
 sub WIPE_AGGRO {
+    quest::debug("VOXDIAG WIPE_AGGRO healing ".$npc->GetHP()." -> ".$npc->GetMaxHP());
     $npc->BuffFadeAll();
     $npc->WipeHateList();
     $npc->SetHP($npc->GetMaxHP());
