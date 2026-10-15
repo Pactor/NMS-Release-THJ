@@ -1,5 +1,10 @@
 # NMS Server — community release
 
+> **THJ fork (Pactor):** this fork adds a customized **level-80** world (retuned Luclin content,
+> scaled loot, custom spells/items/pets, waypoint network). See **[THJ-FORK.md](THJ-FORK.md)**.
+> **Important:** in step 2 below, import the DB from this repo's **Releases** (`nms-content-*.sql.gz`)
+> — do **not** import the stock `release-peq.zip`, or you'll get the base server without the fork's content.
+
 This has been engineered by hardworking community developers for public release. Play the Official Project Triune Server at https://discord.gg/PkAFVSHZCz
 
 **This code and all derivative works are the fruit of an educational project by many students and will always be free!**
@@ -41,8 +46,10 @@ Each folder has its own README with detailed instructions. Start with the server
 need the RoF2-era client this server was built against. See
 [the client README](Release-NMS-Client/README.md) for what to do with it.
 
-**2. Set up the database.** Unzip `Release-NMS-Server/database/release-peq.zip` and import it into
-an empty schema. It contains **no player data** — it is a fresh world.
+**2. Set up the database.** Create an empty `nms` schema and import this fork's content DB from
+**Releases** (`nms-content-YYYYMMDD.sql.gz`) — `gzip -dc nms-content-*.sql.gz | mysql -u <user> -p nms`.
+It contains the full level-80 world and **no player data** (fresh accounts/characters). This
+*replaces* the stock `Release-NMS-Server/database/release-peq.zip`; don't import both.
 
 **3. Build the server.** Windows: run `build-windows.bat`, then open `Build\EQEmu.sln`.
 Linux: `make`. Verified against MSVC 2022, clang 14 and GCC 12.
