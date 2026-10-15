@@ -19,3 +19,8 @@ out/
 
 # Large vcpkg build archives (>100MB limit on GitHub)
 Release-NMS-Server/vcpkg/vcpkg-export-x64.zip
+
+# distribution DB dumps (attach to Releases, never commit)
+dump/
+*.sql
+*.sql.gz
